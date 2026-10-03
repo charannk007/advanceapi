@@ -13,8 +13,3 @@ async def create_products_table():
     """)
 
     await connection.close()
-
-
-import asyncio
-
-asyncio.run(create_products_table())
