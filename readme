@@ -1,0 +1,898 @@
+# FastAPi-advanced
+
+A learning project focused on building a modular, scalable backend with **FastAPI, PostgreSQL, async programming, authentication, middleware, OpenAI integration, and Streamlit**.
+
+The project starts with a traditional CRUD API and gradually introduces AI-powered database querying.
+
+---
+
+## 🎯 Project Goal
+
+The goal of this project is to understand how a modern backend application is designed and how the different components work together.
+
+The project focuses on:
+
+- FastAPI fundamentals
+- Modular project architecture
+- REST APIs
+- Pydantic validation
+- PostgreSQL integration
+- Async database operations
+- Connection pooling
+- CRUD operations
+- Bulk database operations
+- Middleware
+- Request IDs
+- Authentication
+- Global exception handling
+- OpenAI integration
+- AI + PostgreSQL querying
+- Streamlit UI
+- Foundations for Agentic AI backends
+
+---
+
+# 🏗️ Architecture
+
+Current architecture:
+
+```text
+                    ┌───────────────┐
+                    │   Streamlit   │
+                    │      UI       │
+                    └───────┬───────┘
+                            │ HTTP
+                            ▼
+                    ┌───────────────┐
+                    │    FastAPI    │
+                    └───────┬───────┘
+                            │
+                ┌───────────┴───────────┐
+                ▼                       ▼
+        ┌───────────────┐       ┌───────────────┐
+        │    OpenAI     │       │   PostgreSQL  │
+        │      AI       │       │    Database   │
+        └───────────────┘       └───────────────┘
+```
+
+For the current AI product lookup:
+
+```text
+User
+ ↓
+Streamlit
+ ↓
+FastAPI
+ ↓
+OpenAI
+ ↓
+Product name
+ ↓
+PostgreSQL
+ ↓
+Product information
+ ↓
+Streamlit
+```
+
+PostgreSQL remains the **source of truth for product data**.
+
+---
+
+# 📁 Project Structure
+
+```text
+FastAPi-advanced/
+│
+├── app/
+│   ├── __init__.py
+│   │
+│   ├── main.py
+│   │
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   ├── exceptions.py
+│   │   └── exception_handlers.py
+│   │
+│   ├── database/
+│   │   ├── __init__.py
+│   │   └── connection.py
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── product.py
+│   │
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── product.py
+│   │
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── products.py
+│   │   └── ai.py
+│   │
+│   └── services/
+│       ├── __init__.py
+│       ├── product_service.py
+│       └── ai_service.py
+│
+├── streamlit_app/
+│   └── app.py
+│
+├── oldapi/
+│   ├── database.py
+│   ├── productApi.py
+│   ├── learning.py
+│   └── timeauth.py
+│
+├── .env
+├── .gitignore
+└── README.md
+```
+
+---
+
+# 🧩 Responsibilities
+
+## `app/main.py`
+
+Main FastAPI application.
+
+Responsible for:
+
+- Creating the FastAPI application
+- Application lifespan
+- Database pool startup/shutdown
+- Middleware
+- Router registration
+
+---
+
+## `app/core/config.py`
+
+Central configuration.
+
+Loads environment variables from `.env`.
+
+Example:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=your_user
+DB_PASSWORD=your_password
+
+OPENAI_API_KEY=your_openai_key
+API_TOKEN=your_api_token
+```
+
+Secrets should never be committed to Git.
+
+---
+
+## `app/core/security.py`
+
+Handles API authentication.
+
+The project currently uses HTTP Bearer authentication.
+
+```text
+Authorization: Bearer <token>
+```
+
+---
+
+## `app/core/exceptions.py`
+
+Contains application-specific exceptions.
+
+Example:
+
+```python
+ProductNotFoundException
+```
+
+---
+
+## `app/core/exception_handlers.py`
+
+Converts application exceptions into HTTP responses.
+
+Example:
+
+```text
+ProductNotFoundException
+        ↓
+HTTP 404
+```
+
+---
+
+## `app/database/connection.py`
+
+Handles PostgreSQL connection pooling using `asyncpg`.
+
+The application creates a connection pool when FastAPI starts:
+
+```text
+FastAPI startup
+      ↓
+Create PostgreSQL pool
+```
+
+When the application shuts down:
+
+```text
+FastAPI shutdown
+      ↓
+Close PostgreSQL pool
+```
+
+---
+
+## `app/models/`
+
+Contains database-related model/table logic.
+
+The `products` table contains:
+
+```text
+id
+name
+price
+```
+
+---
+
+## `app/schemas/`
+
+Contains Pydantic models used for request and response validation.
+
+Example:
+
+```python
+class ProductCreate(BaseModel):
+    name: str
+    price: float
+```
+
+---
+
+## `app/routers/`
+
+Contains API endpoints.
+
+Current routers:
+
+```text
+products.py
+ai.py
+```
+
+---
+
+## `app/services/`
+
+Contains business logic and database operations.
+
+The router should remain thin.
+
+Example:
+
+```text
+Router
+  ↓
+Service
+  ↓
+Database
+```
+
+---
+
+# 🗄️ PostgreSQL
+
+The project uses PostgreSQL with `asyncpg`.
+
+Current table:
+
+```sql
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price FLOAT NOT NULL
+);
+```
+
+Example data:
+
+```text
+Apple              180
+Banana              60
+Mango              150
+Orange             100
+Laptop           75000
+Keyboard          2500
+Monitor          18000
+```
+
+---
+
+# 🔌 Connection Pool
+
+Instead of creating a new PostgreSQL connection for every request, the application uses a connection pool.
+
+Conceptually:
+
+```text
+Without Pool:
+
+Request
+  ↓
+Create connection
+  ↓
+Query
+  ↓
+Close connection
+
+
+With Pool:
+
+          ┌───────────────┐
+          │ Connection 1  │
+          │ Connection 2  │
+          │ Connection 3  │
+          │ Connection 4  │
+          └───────┬───────┘
+                  │
+             Request
+                  ↓
+           Borrow connection
+                  ↓
+                Query
+                  ↓
+           Return connection
+```
+
+This improves connection reuse and concurrency.
+
+---
+
+# 🌐 Product API
+
+## Create Product
+
+```http
+POST /products/
+```
+
+Example:
+
+```json
+{
+  "name": "Apple",
+  "price": 180
+}
+```
+
+---
+
+## Get All Products
+
+```http
+GET /products/
+```
+
+---
+
+## Get Product
+
+```http
+GET /products/{product_id}
+```
+
+Example:
+
+```http
+GET /products/18
+```
+
+---
+
+## Update Product
+
+```http
+PUT /products/{product_id}
+```
+
+Example:
+
+```json
+{
+  "name": "Apple",
+  "price": 200
+}
+```
+
+---
+
+## Delete Product
+
+```http
+DELETE /products/{product_id}
+```
+
+---
+
+## Bulk Create Products
+
+The project also supports inserting multiple products in a single request:
+
+```http
+POST /products/bulk
+```
+
+Example:
+
+```json
+[
+  {
+    "name": "Apple",
+    "price": 180
+  },
+  {
+    "name": "Banana",
+    "price": 60
+  },
+  {
+    "name": "Mango",
+    "price": 150
+  }
+]
+```
+
+This is useful for understanding batch database operations.
+
+---
+
+# 🔐 Authentication
+
+Product endpoints use Bearer authentication.
+
+Example:
+
+```text
+Authorization: Bearer my-secret-token
+```
+
+The token is stored in `.env`:
+
+```env
+API_TOKEN=your_token
+```
+
+Authentication flow:
+
+```text
+Request
+   ↓
+HTTP Bearer
+   ↓
+verify_token()
+   ↓
+Valid?
+ ┌───────┴───────┐
+Yes              No
+ ↓                ↓
+Router           401
+```
+
+---
+
+# 🛡️ Middleware
+
+## Timing Middleware
+
+Measures how long an API request takes.
+
+Example log:
+
+```text
+GET /products/ completed in 0.0123 seconds
+```
+
+---
+
+## Request ID Middleware
+
+Creates a unique ID for every request.
+
+Example:
+
+```text
+X-Request-ID: <unique-request-id>
+```
+
+This helps with tracing requests through logs.
+
+---
+
+# ❌ Error Handling
+
+The application uses custom exceptions and a global exception handler.
+
+Example:
+
+```text
+GET /products/999
+```
+
+If product `999` doesn't exist:
+
+```text
+Service
+   ↓
+ProductNotFoundException
+   ↓
+Global Exception Handler
+   ↓
+HTTP 404
+```
+
+Example response:
+
+```json
+{
+  "detail": "Product 999 not found",
+  "product_id": 999
+}
+```
+
+This keeps business logic separate from HTTP response logic.
+
+---
+
+# 🤖 OpenAI Integration
+
+The project contains a simple OpenAI integration.
+
+Current flow:
+
+```text
+User question
+      ↓
+FastAPI
+      ↓
+OpenAI
+      ↓
+Extract product name
+      ↓
+PostgreSQL
+      ↓
+Product result
+```
+
+Example:
+
+```text
+"What is the price of Apple?"
+```
+
+OpenAI extracts:
+
+```text
+Apple
+```
+
+FastAPI then queries PostgreSQL:
+
+```sql
+SELECT id, name, price
+FROM products
+WHERE LOWER(name) = LOWER('Apple');
+```
+
+The database provides the actual price.
+
+This ensures the product price comes from PostgreSQL rather than the AI's general knowledge.
+
+---
+
+# 🖥️ Streamlit Application
+
+A simple Streamlit UI is included for querying the product API.
+
+Run:
+
+```bash
+streamlit run streamlit_app/app.py
+```
+
+The application provides a simple interface:
+
+```text
+🛒 Product AI Assistant
+
+Ask something about your products
+
+[ What is the price of Apple? ]
+
+             [ Ask ]
+```
+
+The UI communicates with FastAPI rather than directly accessing PostgreSQL.
+
+Architecture:
+
+```text
+Streamlit
+    ↓ HTTP
+FastAPI
+    ↓
+OpenAI
+    ↓
+PostgreSQL
+```
+
+This maintains a clean frontend/backend separation.
+
+---
+
+# 📚 Swagger / OpenAPI
+
+FastAPI automatically provides interactive API documentation.
+
+Start the server:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Alternative documentation:
+
+```text
+http://127.0.0.1:8000/redoc
+```
+
+---
+
+# ⚙️ Environment Setup
+
+Create a virtual environment:
+
+```bash
+python3 -m venv .venv
+```
+
+Activate it:
+
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install fastapi uvicorn asyncpg python-dotenv openai streamlit requests
+```
+
+---
+
+# 🔑 Environment Variables
+
+Create `.env`:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=your_user
+DB_PASSWORD=your_password
+
+API_TOKEN=your_api_token
+
+OPENAI_API_KEY=your_openai_api_key
+```
+
+Never commit `.env` to Git.
+
+Add it to `.gitignore`:
+
+```text
+.env
+.venv/
+__pycache__/
+*.pyc
+```
+
+---
+
+# ▶️ Running the Application
+
+## Start FastAPI
+
+Terminal 1:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+API:
+
+```text
+http://127.0.0.1:8000
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+## Start Streamlit
+
+Terminal 2:
+
+```bash
+streamlit run streamlit_app/app.py
+```
+
+Streamlit:
+
+```text
+http://localhost:8501
+```
+
+Both applications should run at the same time.
+
+---
+
+# 🧪 Testing
+
+The API can be tested using:
+
+- Swagger UI
+- Postman
+- PostgreSQL CLI
+- Streamlit
+
+Example PostgreSQL check:
+
+```sql
+SELECT * FROM products ORDER BY id;
+```
+
+---
+
+# 🧠 Learning Progress
+
+### Completed
+
+- [x] FastAPI fundamentals
+- [x] HTTP methods
+- [x] REST API concepts
+- [x] Pydantic
+- [x] Routers
+- [x] Modular project structure
+- [x] PostgreSQL
+- [x] Async database operations
+- [x] Connection pooling
+- [x] CRUD
+- [x] Bulk insert
+- [x] Middleware
+- [x] Request ID
+- [x] Authentication
+- [x] Global exception handling
+- [x] OpenAI integration
+- [x] AI + PostgreSQL lookup
+- [x] Streamlit UI
+
+### Skipped / Optional
+
+- [ ] Pagination
+- [ ] SSE / StreamingResponse
+- [ ] OpenAI streaming
+
+These can be added later when needed.
+
+---
+
+# 🚀 Future Improvements
+
+Possible next steps:
+
+```text
+Current
+   ↓
+Better AI request schemas
+   ↓
+Natural-language database queries
+   ↓
+AI tool/function calling
+   ↓
+Multiple database tools
+   ↓
+AI Agent architecture
+   ↓
+Streaming AI responses
+   ↓
+Automated testing
+   ↓
+Production deployment
+```
+
+Potential production improvements:
+
+- JWT/OAuth2 authentication
+- Role-based authorization
+- Database migrations
+- Automated tests with pytest
+- Structured logging
+- Rate limiting
+- Redis
+- Docker
+- CI/CD
+- Monitoring
+- Production secrets management
+- Database indexing
+- API versioning
+
+---
+
+# 🎯 Main Learning Principle
+
+The project follows a simple architecture:
+
+```text
+Router
+   ↓
+Service
+   ↓
+Database
+```
+
+For AI features:
+
+```text
+Router
+   ↓
+AI Service
+   ↓
+Database Service
+   ↓
+PostgreSQL
+```
+
+The goal is not just to make the application work, but to understand **why each layer exists and how the pieces communicate**.
+
+---
+
+# 📌 Current Project Status
+
+This project is primarily a **learning/prototype application built using production-oriented backend patterns**.
+
+It demonstrates how:
+
+- FastAPI handles APIs
+- Pydantic validates data
+- PostgreSQL stores application data
+- asyncpg handles asynchronous database operations
+- connection pooling improves database connection reuse
+- middleware handles cross-cutting concerns
+- authentication protects endpoints
+- exception handlers provide consistent errors
+- OpenAI understands natural-language requests
+- PostgreSQL remains the source of truth
+- Streamlit provides a simple frontend
+
+The project can later be evolved into a production-grade **AI-powered backend / Agentic AI application**.
